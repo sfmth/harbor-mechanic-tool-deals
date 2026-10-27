@@ -97,7 +97,23 @@ def validate():
     with (SITE / 'downloads' / 'harbor_freight_automotive_coverage_audit.csv').open(encoding='utf-8-sig', newline='') as stream:
         ledger = list(csv.DictReader(stream))
     assert len(ledger) == 1213 and {r['sku'] for r in ledger} == {r['sku'] for r in coverage}
-    result = {'included': len(included), 'size_exclusions': len(excluded), 'photos': len(photos), 'coverage_decisions': len(coverage), 'new_included': 1506}
+    capabilities = json.loads((SITE / 'data/capabilities.json').read_text())
+    assert set(capabilities['products']) == skus
+    deals = json.loads((SITE / 'data/deals.json').read_text())
+    assert deals['last_success'] and deals['last_checked'] and deals['refresh']['status'] in ['ok', 'error']
+    offer_ids = set()
+    for member, key in [(False, 'public_offers'), (True, 'member_offers')]:
+        for offer in deals[key]:
+            assert offer['id'] not in offer_ids
+            offer_ids.add(offer['id'])
+            assert offer['membership_required'] is member
+            assert isinstance(offer['price'], (int, float)) and offer['price'] > 0
+            assert re.fullmatch(r'\d{4}-\d{2}-\d{2}', offer['starts_on'])
+            assert re.fullmatch(r'\d{4}-\d{2}-\d{2}', offer['ends_on'])
+            assert offer['starts_on'] <= offer['ends_on']
+            assert offer['source_url'].startswith('https://go.harborfreight.com/')
+    assert (SITE / 'data/deal-history.json').is_file() and (SITE / 'deals.xml').is_file()
+    result = {'included': len(included), 'size_exclusions': len(excluded), 'photos': len(photos), 'coverage_decisions': len(coverage), 'new_included': 1506, 'recorded_public_offers': len(deals['public_offers']), 'recorded_member_offers': len(deals['member_offers'])}
     return result
 
 if __name__ == '__main__':

@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  schedule:
+    - cron: '17 * * * *'
 
 permissions:
   contents: read
@@ -15,14 +17,39 @@ concurrency:
 
 jobs:
   build:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pages: read
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Refresh official offers and observed history
+        id: refresh
+        continue-on-error: true
+        run: python3 scripts/update_deals.py
+      - name: Report preserved snapshot on source failure
+        if: steps.refresh.outcome == 'failure'
+        run: echo '::warning::Official source refresh failed. Last successful offers are preserved and refresh health will be published.'
+      - name: Check offer and ownership behavior
+        run: |
+          python3 -m unittest discover -s tests -p 'test_*.py'
+          node --test tests/*.cjs
       - name: Check JavaScript syntax
-        run: node --check site/assets/app.js
+        run: |
+          for source in site/assets/*.js; do node --check "$source"; done
+      - name: Commit only refreshed public data
+        run: |
+          git add site/data/deals.json site/data/deal-history.json site/deals.xml
+          if ! git diff --cached --quiet; then
+            git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'Refresh official offers and observed price history'
+            git push origin HEAD:main
+          fi
       - name: Validate and stage public site
-        run: python3 scripts/build_site.py --commit "$GITHUB_SHA"
+        run: python3 scripts/build_site.py --commit "$(git rev-parse HEAD)"
       - name: Configure Pages
         uses: actions/configure-pages@v5
       - name: Upload Pages artifact
