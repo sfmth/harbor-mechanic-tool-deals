@@ -6,8 +6,8 @@ Build a mechanic's tool collection over time by finding active Harbor Freight of
 
 ## Start your buying plan
 
-1. Open **Budget & shopping settings** and enter an optional monthly budget. Enable Inside Track Club pricing only if you have that membership. Public and member prices remain separate on product cards.
-2. In **My tools**, add products you already own, enter socket or wrench sets from any brand, or select an explicit **I am set for…** family rule. The default hides covered products.
+1. The first visit opens a guided setup for your budget, membership, buying mode and optional store. You can skip it and reopen **Run setup** in My tools or shopping settings. Open **Budget & shopping settings** and enter an optional monthly budget. Enable Inside Track Club pricing only if you have that membership. Public and member prices remain separate on product cards.
+2. In **My tools**, search **137 tool types across 21 areas**, find an exact catalog product by name, brand or SKU, or search your saved collection. Air tools, electric power tools and compressor accessories are separate areas. Check a tool type only when you want all matching products hidden, add a covered tool type from any brand, or enter exact socket, wrench, hex-key, drill-bit or driver-bit sizes. The default hides covered products.
 3. Choose **Build my collection · avoid overlap** for suggestions across remaining tool needs, or **Only my wish list / Want to buy** to limit suggestions to saved products and products marked **Want to buy**.
 4. Review the suggested buying list, its price and coverage explanations, and the official offer's code, dates and restrictions. Suggestions consider advertised savings and the prices this tracker has actually observed; they do not predict the lowest future price or judge tool quality.
 5. After buying a tool, use **Record purchase** and enter the actual unit price, quantity and date. This adds it to your owned tools and deducts the logged spend from that Pacific calendar month's budget.
@@ -18,7 +18,7 @@ The site creates a shopping plan; purchases still happen with the retailer. A bl
 
 Exact product ownership suppresses that product. An explicit whole-family rule, such as **I am set for sockets**, hides that family until you remove the rule. Use this broad option when you deliberately want to stop considering the entire category.
 
-For more precise coverage, manual socket and wrench entries accept an explicit list of sizes and the relevant profiles. Socket matching distinguishes metric/SAE, drive size, depth, impact use, point count and profile. Wrench matching distinguishes the applicable wrench styles and other relevant properties. Compatible owned sets can combine their verified coverage across brands. Partial overlap stays visible with an explanation of what the candidate adds; uncertain contents or profiles stay visible for review.
+Tool-type rules narrow this to a specific kind of tool, such as air ratchets or flex-head ratcheting wrench sets. Any-brand tool-type entries explicitly cover that type; catalog product entries cover only their exact SKU. For more precise coverage, manual socket, wrench, hex-key, drill-bit and driver-bit entries accept an explicit list of sizes and the relevant profiles. Socket matching distinguishes metric/SAE, drive size, depth, impact use, point count and profile. Wrench matching distinguishes the applicable wrench styles and other relevant properties. Compatible owned sets can combine their verified coverage across brands. Partial overlap stays visible with an explanation of what the candidate adds; uncertain contents or profiles stay visible for review.
 
 **I own this** records existing ownership without inventing a purchase price. **Record purchase** records ownership and spending together. Manage owned entries and family rules in **My tools**; purchase records are managed in **History & alerts**. Removing a purchase log entry does not imply that you no longer own the tool.
 
@@ -86,7 +86,7 @@ for source in site/assets/*.js; do node --check "$source"; done
 python3 -m http.server 8000 --directory site
 ```
 
-Open `http://localhost:8000/`. The website lives in `site/`: `index.html` contains the audited catalog, `assets/` contains the interface and product photos, `data/` contains public feed/history/capability data, `downloads/` contains snapshot CSVs, and `deals.xml` is the public RSS feed. `scripts/build_capabilities.py` rebuilds conservative ownership descriptors when the audited catalog changes.
+Open `http://localhost:8000/`. The website lives in `site/`: `index.html` contains the catalog, `assets/` contains the interface, tool taxonomy, guided setup, searchable collection manager and product photos, `data/` contains public feed/history/capability data, `downloads/` contains snapshot CSVs, and `deals.xml` is the public RSS feed. `scripts/build_capabilities.py` rebuilds conservative ownership descriptors when the audited catalog changes.
 
 ## GitHub Pages deployment
 

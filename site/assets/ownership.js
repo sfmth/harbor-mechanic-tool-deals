@@ -1,10 +1,11 @@
 /* Functional ownership coverage. Unknown specifications never prove equivalence. */
 (function (root, factory) {
   'use strict';
-  const api = factory();
+  const taxonomy = typeof module === 'object' && module.exports ? require('./tool-taxonomy.js') : root.ToolTaxonomy;
+  const api = factory(taxonomy);
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.ToolOwnership = api;
-})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (taxonomy) {
   'use strict';
   const VERSION = 2;
   const FAMILIES = [
@@ -18,7 +19,8 @@
     ['breaker-bars', 'Breaker bars', []], ['adjustable-wrenches', 'Adjustable and pipe wrenches', []],
     ['pliers', 'Pliers and wire tools', []], ['hammers', 'Hammers and mallets', []],
     ['jacks', 'Jacks', []], ['jack-stands', 'Jack stands', []], ['ramps', 'Vehicle ramps', []],
-    ['diagnostics', 'Diagnostics and electrical testing', []], ['power-tools', 'Power and air tools', []],
+    ['diagnostics', 'Diagnostics and electrical testing', []], ['power-tools', 'Electric power tools', []],
+    ['air-tools', 'Air-powered tools', []],
     ['lighting', 'Garage lighting', []], ['storage', 'Tool storage and organizers', []],
     ['other-tools', 'Other tools and garage equipment', []]
   ].map(([id,label,dimensions]) => Object.freeze({id,label,dimensions:Object.freeze(dimensions)}));
@@ -62,6 +64,8 @@
     return uniq((Array.isArray(values)?values:[]).slice(0,500).map(v=>normalizeSize(v,system)).filter(Boolean));
   }
   function familyOf(row) {
+    const classified=taxonomy?.classify(row);
+    if (classified&&classified.type!=='miscellaneous-tools') return classified.family;
     const c=clean(row.Category).toLowerCase(), n=clean(row.Product||row.label).toLowerCase(), t=`${c} ${n}`;
     if (/torque wrench|torque tools|torque adapter/.test(t)) return 'torque-wrenches';
     if (/breaker bar/.test(t)) return 'breaker-bars';
@@ -137,9 +141,17 @@
   function classifyProduct(row, catalog) {
     const sku=clean(row['Item Number']||row.sku);
     const ready=catalog?.products?.[sku]||catalog?.[sku];
-    if (ready && ready.capabilities) return ready;
+    if (ready && ready.capabilities) {
+      const type=taxonomy?.classify(row);
+      // Saved descriptors predate the air/electric split. Preserve all size evidence.
+      if (type?.group==='air-tools'||type?.group==='power-tools') {
+        return {...ready,family:type.family,families:[type.family],toolType:type.type,group:type.group};
+      }
+      return {...ready,...(type?{toolType:type.type,group:type.group}:{})};
+    }
     const family=familyOf(row), label=clean(row.Product||row.label), dim=baseDimensions(row,family);
-    const result={sku,family,families:[family],label,dimensions:dim,capabilities:[],coverageComplete:false,issues:[]};
+    const type=taxonomy?.classify(row);
+    const result={sku,family,families:[family],label,dimensions:dim,capabilities:[],coverageComplete:false,issues:[],...(type?{toolType:type.type,group:type.group}:{})};
     const definition=familyMap.get(family);
     if (!definition?.dimensions.length) { result.issues.push('This family currently supports exact-SKU ownership and explicit family rules.');return result; }
     const reviewed=clean(row['Sizes Reviewed']);
@@ -201,17 +213,25 @@
     const source=Array.isArray(entries)?entries:entries?.inventory;
     return (Array.isArray(source)?source:[]).slice(0,5000).filter(v=>v&&typeof v==='object').map((v,index)=>{
       const raw=Array.isArray(v.capabilities)?v.capabilities:[v];
+      const toolType=taxonomy?.getType(v.toolType)?.id||null;
       const caps=raw.map(c=>normalizeCapability({...c,missingSizes:c.missingSizes||v.missingSizes})).filter(Boolean);
       const proof=v.evidence&&typeof v.evidence==='object'?{
         source:clean(v.evidence.source).slice(0,1000),
         verifiedAt:clean(v.evidence.verifiedAt).slice(0,100),
         issues:Array.isArray(v.evidence.issues)?v.evidence.issues.filter(x=>typeof x==='string').slice(0,30).map(x=>x.slice(0,1000)):[]
       }:null;
-      return {id:clean(v.id).slice(0,200)||`inventory-${index}`,sku:clean(v.sku||v['Item Number']).slice(0,100),label:clean(v.label||v.name).slice(0,1000),source:clean(v.source)||'manual',condition:clean(v.condition)||'usable',capabilities:caps,coverageComplete:v.coverageComplete!==false,evidence:proof,acquiredAt:clean(v.acquiredAt)||null,paidPrice:Number.isFinite(v.paidPrice)&&v.paidPrice>=0?v.paidPrice:null};
-    }).filter(v=>v.sku||v.capabilities.length);
+      return {id:clean(v.id).slice(0,200)||`inventory-${index}`,sku:clean(v.sku||v['Item Number']).slice(0,100),label:clean(v.label||v.name).slice(0,1000),source:clean(v.source)||'manual',toolType,condition:clean(v.condition)||'usable',capabilities:caps,coverageComplete:v.coverageComplete!==false,evidence:proof,acquiredAt:clean(v.acquiredAt)||null,paidPrice:Number.isFinite(v.paidPrice)&&v.paidPrice>=0?v.paidPrice:null};
+    }).filter(v=>v.sku||v.capabilities.length||v.toolType);
   }
   function normalizeRules(rules) {
-    return (Array.isArray(rules)?rules:[]).slice(0,500).filter(r=>r&&familyMap.has(r.family)).map(r=>({id:clean(r.id)||`family-${r.family}`,family:r.family,mode:r.mode==='exact'?'exact':'family',enabled:r.enabled!==false,dimensions:r.dimensions&&typeof r.dimensions==='object'?{...r.dimensions}:{}}));
+    return (Array.isArray(rules)?rules:[]).slice(0,500).filter(r=>r&&typeof r==='object').map(r=>{
+      if (r.mode==='type') {
+        const type=taxonomy?.getType(r.type);
+        return type?{id:clean(r.id)||`type-${type.id}`,family:type.family,type:type.id,mode:'type',enabled:r.enabled!==false}:null;
+      }
+      if (!familyMap.has(r.family)) return null;
+      return {id:clean(r.id)||`family-${r.family}`,family:r.family,mode:r.mode==='exact'?'exact':'family',enabled:r.enabled!==false,dimensions:r.dimensions&&typeof r.dimensions==='object'?{...r.dimensions}:{}};
+    }).filter(Boolean);
   }
   function dimensionsMatch(required,owned) {
     const definition=familyMap.get(required.family);
@@ -232,7 +252,12 @@
     if (override==='hide') return {...result,status:'covered',covered:true,hidden:true,source:'override',explanation:'Hidden by your product rule.'};
     const owned=normalizeInventory(inventory).filter(v=>v.condition!=='broken'&&v.condition!=='missing'&&v.condition!=='retired');
     if (sku&&owned.some(v=>v.sku===sku)) return {...result,status:'owned',covered:true,hidden:true,source:'sku',explanation:'You already own this exact product.'};
-    const broad=normalizeRules(rules).filter(r=>r.enabled&&r.mode==='family');
+    const normalizedRules=normalizeRules(rules);
+    const productType=taxonomy?.classify(row)?.type;
+    const typeRule=normalizedRules.find(r=>r.enabled&&r.mode==='type'&&r.type===productType);
+    const typedOwnership=owned.some(v=>!v.sku&&v.source!=='catalog'&&v.toolType===productType);
+    if (typeRule||typedOwnership) return {...result,status:'covered',covered:true,hidden:true,source:'type',explanation:typedOwnership?'Covered by your explicit any-brand tool-type selection.':'Hidden by your explicit tool-type preference.'};
+    const broad=normalizedRules.filter(r=>r.enabled&&r.mode==='family');
     const suppressedFamilies=new Set(broad.map(r=>r.family));
     if (descriptor.families.length&&descriptor.families.every(f=>suppressedFamilies.has(f))) return {...result,status:'covered',covered:true,hidden:true,source:'family',explanation:'Hidden by your explicit whole-family preference.'};
     const caps=owned.flatMap(v=>v.capabilities);
@@ -255,7 +280,7 @@
   }
   function inventoryFromProduct(row,catalog,options) {
     const d=classifyProduct(row,catalog), o=options||{};
-    return normalizeInventory([{id:o.id||`owned-${d.sku}`,sku:d.sku,label:d.label,source:'catalog',capabilities:d.capabilities,coverageComplete:d.coverageComplete,evidence:{source:clean(row['Size Evidence URL']||row['Product URL']),verifiedAt:clean(row['Checked Date']),issues:d.issues},acquiredAt:o.acquiredAt,paidPrice:o.paidPrice}])[0];
+    return normalizeInventory([{id:o.id||`owned-${d.sku}`,sku:d.sku,label:d.label,source:'catalog',toolType:d.toolType,capabilities:d.capabilities,coverageComplete:d.coverageComplete,evidence:{source:clean(row['Size Evidence URL']||row['Product URL']),verifiedAt:clean(row['Checked Date']),issues:d.issues},acquiredAt:o.acquiredAt,paidPrice:o.paidPrice}])[0];
   }
   return Object.freeze({VERSION,FAMILIES,DIMENSIONS,UNKNOWN,normalizeSize,normaliseSize:normalizeSize,normalizeSizes,classifyProduct,normalizeInventory,normaliseInventory:normalizeInventory,normalizeRules,normaliseRules:normalizeRules,coverageForProduct,inventoryFromProduct,dimensionsMatch});
 });

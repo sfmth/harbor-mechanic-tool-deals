@@ -85,5 +85,5 @@ test('real catalog parsing separates dimensional drives and bit profiles',()=>{
 test('family classifiers do not swallow adjustable, torque or powered ratchet tools',()=>{
  assert.equal(api.classifyProduct({Product:'3/8 in. Torque Wrench',Category:'Torque Tools'}).family,'torque-wrenches');
  assert.equal(api.classifyProduct({Product:'10 in. Adjustable Wrench',Category:'Adjustable and pipe wrenches'}).family,'adjustable-wrenches');
- assert.equal(api.classifyProduct({Product:'3/8 in. Air Ratchet Wrench',Category:'Air Ratchet Wrenches'}).family,'power-tools');
+ assert.equal(api.classifyProduct({Product:'3/8 in. Air Ratchet Wrench',Category:'Air Ratchet Wrenches'}).family,'air-tools');
 });
