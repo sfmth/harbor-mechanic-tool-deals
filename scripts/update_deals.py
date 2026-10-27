@@ -496,7 +496,18 @@ def rss_text(snapshot, now):
     offers.sort(key=lambda o: (-(o.get("retailer_savings_percent") or 0), -(o.get("retailer_savings_dollars") or 0), o["id"]))
     for offer in offers:
         item = ET.SubElement(channel, "item")
-        name = re.sub(r"\s+for\s+\$[\d,.]+$", "", offer["title"], flags=re.I)
+        # A retailer coupon can cover both an accepted set and a set with gaps.
+        # Name only the audited canonical items, rather than the shared coupon's
+        # generic title or its first (potentially excluded) source SKU.
+        eligible_skus = list(dict.fromkeys(str(sku) for sku in offer["eligible_catalog_skus"]))
+        eligible_set = set(eligible_skus)
+        names = {}
+        for match in offer.get("catalog_matches", []):
+            sku = str(match.get("catalog_sku") or match.get("sku") or "")
+            if match.get("included") and sku in eligible_set and match.get("product"):
+                names.setdefault(sku, plain_text(match["product"]))
+        audited_items = [f"{names[sku]} (SKU {sku})" if names.get(sku) else f"SKU {sku}" for sku in eligible_skus]
+        name = "; ".join(audited_items)
         prefix = "[ITC] " if offer["membership_required"] else ""
         ET.SubElement(item, "title").text = f"{prefix}{name} — ${offer['price']:.2f}"
         ET.SubElement(item, "link").text = offer["source_url"]
@@ -505,6 +516,13 @@ def rss_text(snapshot, now):
         guid.text = "urn:harbor-mechanic-tool-deals:" + hashlib.sha256(key.encode()).hexdigest()[:24]
         conditions = [f"${offer['price']:.2f}; valid through {offer['ends_on']} Pacific time."]
         conditions.append("Paid Inside Track Club membership required." if offer["membership_required"] else "Public offer.")
+        conditions.append("Audited eligible catalog items: " + "; ".join(audited_items) + ".")
+        other_variants = bool(offer.get("unreviewed_skus")) or any(
+            not match.get("included") or str(match.get("catalog_sku") or match.get("sku") or "") not in eligible_set
+            for match in offer.get("catalog_matches", [])
+        )
+        if other_variants:
+            conditions.append("This retailer offer also covers other variants. For this catalog, choose only the audited eligible SKUs listed above; other variants are not audited eligible.")
         if offer.get("coupon_code"):
             conditions.append("Coupon code: " + offer["coupon_code"] + ".")
         if offer.get("retailer_savings_percent") is not None:

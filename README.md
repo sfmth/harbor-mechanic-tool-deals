@@ -46,7 +46,7 @@ Tracking began on **October 26, 2026 Pacific time** (`2026-10-27T00:41:24Z`). Hi
 
 Enable deal alerts and choose a minimum advertised savings percentage in shopping settings. Matching alerts use your buying mode, wish list, ownership and membership settings. On-site alerts and optional browser notifications run **while this page is open**; this version does not provide background push, email or SMS delivery.
 
-The [RSS feed](https://sfmth.github.io/harbor-mechanic-tool-deals/deals.xml) contains qualifying offers for the shared audited catalog, including clearly labelled ITC offers. It is global: it does **not** apply your private ownership, budget or wish-list filters. A feed reader controls how often it polls and how it notifies you.
+The [RSS feed](https://sfmth.github.io/harbor-mechanic-tool-deals/deals.xml) contains qualifying offers for the shared audited catalog, including clearly labelled ITC offers and the audited eligible SKU(s). A shared coupon may also mention other variants; only the listed audited SKUs qualify for this catalog. The feed is global: it does **not** apply your private ownership, budget or wish-list filters. A feed reader controls how often it polls and how it notifies you.
 
 You can save a ZIP code, preferred store name/number and an official store-page link for reference. The settings also link to Harbor Freight's own locator and directory. Location preferences do not establish inventory, availability or local prices.
 

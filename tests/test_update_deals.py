@@ -240,6 +240,40 @@ class PersistenceAndRssTests(unittest.TestCase):
         self.assertTrue(all("not a historical-low claim" in item.findtext("description") for item in items))
         self.assertEqual(len({item.findtext("guid") for item in items}), 2)
 
+    def test_rss_shared_coupon_names_only_the_accepted_canonical_variant(self):
+        rows = [
+            {"Item Number": "64215", "Product": "3/8 in. Drive SAE Chrome Deep Socket Set, 10-Piece", "_included": True,
+             "Size Review Status": "No skipped standard sizes found"},
+            {"Item Number": "64216", "Product": "Metric socket set with size gaps", "_included": False,
+             "Size Review Status": "Confirmed size gaps"},
+        ]
+        source = offer(
+            title={"rendered": "QUINN Chrome Deep Socket Set, 10-Piece for $9.99"},
+            acf={"sku": "64216", "skus": "64216/64215/99999", "couponvalue": "$9.99"},
+        )
+        mixed = deals.normalize_offer(source, {}, deals.catalog_index(rows))
+        self.assertEqual(mixed["eligible_catalog_skus"], ["64215"])
+        snapshot = {"public_offers": [mixed], "member_offers": [], "refresh": {"status": "ok"}}
+        item = ET.fromstring(deals.rss_text(snapshot, NOW)).find("channel/item")
+        title, description = item.findtext("title"), item.findtext("description")
+        for text in [title, description]:
+            self.assertIn("3/8 in. Drive SAE Chrome Deep Socket Set, 10-Piece (SKU 64215)", text)
+            self.assertNotIn("64216", text)
+            self.assertNotIn("99999", text)
+            self.assertNotIn("Metric socket set with size gaps", text)
+        self.assertIn("choose only the audited eligible SKUs listed above", description)
+        self.assertIn("other variants are not audited eligible", description)
+        self.assertIn("$9.99", title)
+        self.assertEqual(item.findtext("link"), mixed["source_url"])
+
+    def test_rss_documented_aliases_display_one_canonical_item_without_false_variant_warning(self):
+        included = normalized()
+        snapshot = {"public_offers": [included], "member_offers": [], "refresh": {"status": "ok"}}
+        item = ET.fromstring(deals.rss_text(snapshot, NOW)).find("channel/item")
+        self.assertIn("Jump Starter (SKU 59527)", item.findtext("title"))
+        self.assertNotIn("73333", item.findtext("title"))
+        self.assertNotIn("other variants", item.findtext("description"))
+
 
 if __name__ == "__main__":
     unittest.main()
