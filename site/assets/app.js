@@ -39,6 +39,8 @@ function validatePrefs(v) { return MechanicPlanner.sanitize(v,bySKU); }
 preferences=validatePrefs(preferences);
 const state={scope:'included',savedOnly:false,search:'',group:'',category:'',brand:'',min:0,max:200,status:'',measurement:'',format:'',power:'',review:'',sort:'deal',view:'grid',page:1,pageSize:24};
 let compare=[]; let filtered=[]; let toastTimer; let currentDetail='';
+const renderedHTML=new Map();
+function setHTML(id,markup){if(renderedHTML.get(id)===markup)return false;$(id).innerHTML=markup;renderedHTML.set(id,markup);return true;}
 const planner=MechanicPlanner.create({$,DATA,IMAGES,esc,money,toast,bySKU,getPreferences:()=>preferences,setPreferences:p=>{preferences=p},useIncluded:()=>{state.scope='included';state.savedOnly=false;},persist,render});
 const imageURL=r=>IMAGES[text(r,'Item Number')]||'';
 const statusTag=r=>{const k=statusKey(r);if(k==='na')return '';return '<span class="status-tag status-'+k+'" title="'+esc(r['Size Review Status'])+'">'+icon(STATUS[k][1])+STATUS[k][0]+'</span>'};
@@ -90,7 +92,7 @@ function render(keepPage=false){
  const pages=Math.max(1,Math.ceil(filtered.length/state.pageSize));state.page=Math.min(state.page,pages);
  $('product-grid').classList.toggle('list-view',state.view==='list');
  const start=(state.page-1)*state.pageSize;
- $('product-grid').innerHTML=filtered.slice(start,start+state.pageSize).map(card).join('');
+ setHTML('product-grid',filtered.slice(start,start+state.pageSize).map(card).join(''));
  $('empty').hidden=filtered.length!==0;
  $('empty-message').textContent=state.savedOnly&&!preferences.saved.length?'Save a tool with its bookmark button to start your shortlist.':'Try a broader search, choose another tool area, or reset a filter.';
  $('result-count').textContent=nf(filtered.length)+(filtered.length===1?' item':' items');
@@ -113,12 +115,13 @@ function render(keepPage=false){
  planner.onRender();
 }
 function filterList(){const a=[];if(state.search)a.push(['search','Search: '+state.search]);if(state.group)a.push(['group',ToolTaxonomy.GROUPS.find(g=>g.id===state.group)?.label||state.group]);if(state.category)a.push(['category',state.category]);if(state.brand)a.push(['brand',state.brand]);if(state.min>0||state.max<200)a.push(['price',money(state.min)+' – '+money(state.max)]);if(state.status)a.push(['status',STATUS[state.status][0]]);if(state.measurement)a.push(['measurement',state.measurement==='unspecified'?'System not specified':state.measurement==='Both'?'Metric & SAE':state.measurement]);if(state.format)a.push(['format',state.format]);if(state.power)a.push(['power',state.power==='other'?'Other power package':state.power]);if(state.review)a.push(['review',reviewLabels[state.review]]);return a;}
-function renderChips(){const a=filterList();$('active-filters').innerHTML=a.map(([k,v])=>'<button class="filter-chip" data-remove-filter="'+k+'" aria-label="Remove filter: '+esc(v)+'">'+esc(v)+icon('close')+'</button>').join('');$('filter-count').textContent=a.length||'';}
+function renderChips(){const a=filterList();setHTML('active-filters',a.map(([k,v])=>'<button class="filter-chip" data-remove-filter="'+k+'" aria-label="Remove filter: '+esc(v)+'">'+esc(v)+icon('close')+'</button>').join(''));$('filter-count').textContent=a.length||'';}
 function renderPages(pages,start){
- if(!filtered.length){$('pagination').innerHTML='';return;}
+ if(!filtered.length){setHTML('pagination','');return;}
  const visible=new Set([1,pages,state.page-1,state.page,state.page+1]);
  let buttons='',last=0;[...visible].filter(n=>n>=1&&n<=pages).sort((a,b)=>a-b).forEach(n=>{if(last&&n>last+1)buttons+='<span aria-hidden="true">…</span>';buttons+=`<button class="page-btn${n===state.page?' active':''}" data-page="${n}"${n===state.page?' aria-current="page"':''} aria-label="Page ${n}">${n}</button>`;last=n;});
- $('pagination').innerHTML=`<span>Showing ${nf(start+1)}–${nf(Math.min(start+state.pageSize,filtered.length))} of ${nf(filtered.length)}</span><div class="page-buttons"><button class="page-btn" data-page="${state.page-1}" ${state.page===1?'disabled':''} aria-label="Previous page">‹</button>${buttons}<button class="page-btn" data-page="${state.page+1}" ${state.page===pages?'disabled':''} aria-label="Next page">›</button></div><label>Per page <select id="page-size">${[24,48,96].map(n=>`<option${n===state.pageSize?' selected':''}>${n}</option>`).join('')}</select></label>`;
+ const markup=`<span>Showing ${nf(start+1)}–${nf(Math.min(start+state.pageSize,filtered.length))} of ${nf(filtered.length)}</span><div class="page-buttons"><button class="page-btn" data-page="${state.page-1}" ${state.page===1?'disabled':''} aria-label="Previous page">‹</button>${buttons}<button class="page-btn" data-page="${state.page+1}" ${state.page===pages?'disabled':''} aria-label="Next page">›</button></div><label>Per page <select id="page-size">${[24,48,96].map(n=>`<option${n===state.pageSize?' selected':''}>${n}</option>`).join('')}</select></label>`;
+ if(!setHTML('pagination',markup))return;
  $('page-size').addEventListener('change',e=>{state.pageSize=Number(e.target.value);render();});
 }
 function syncControls(){ $('search').value=state.search;$('tool-group').value=state.group;$('category').value=state.category;$('brand').value=state.brand;$('price-min').value=state.min;$('price-max').value=state.max;$('price-range').value=state.max;$('status').value=state.status;$('measurement').value=state.measurement;$('format').value=state.format;$('power-package').value=state.power;$('review-filter').value=state.review;$('sort').value=state.sort; }

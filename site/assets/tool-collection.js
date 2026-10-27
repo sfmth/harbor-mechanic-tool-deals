@@ -10,6 +10,8 @@ function create(api) {
  const classifications=new Map(rows.map(r=>[r['Item Number'],taxonomy.classify(r)]));
  const counts=new Map();rows.forEach(r=>{const t=classifications.get(r['Item Number']).type;counts.set(t,(counts.get(t)||0)+1);});
  let mode='types',query='',group='',selectedType='',limit=24;
+ const renderedHTML=new Map();
+ function setHTML(id,markup){if(renderedHTML.get(id)===markup)return;$(id).innerHTML=markup;renderedHTML.set(id,markup);}
  const words=v=>String(v??'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9/#.]+/g,' ').trim();
  const matches=(value,q=query)=>words(q).split(/\s+/).filter(Boolean).every(w=>words(value).includes(w));
  const typeText=t=>[t.label,groups.get(t.group)?.label,t.keywords||'',t.family].join(' ');
@@ -61,7 +63,7 @@ function create(api) {
   $('inventory-panel').querySelectorAll('[data-collection-view]').forEach(b=>{const active=b.dataset.collectionView===mode;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active));});
   $('collection-clear').hidden=!query&&!group&&!selectedType;
   $('collection-selected-type').hidden=mode!=='products'||!selectedType;$('collection-selected-type').textContent=selectedType?'Showing '+(types.get(selectedType)?.label||selectedType):'';
-  $('family-rules').innerHTML=ToolOwnership.FAMILIES.map(f=>`<label><input type="checkbox" data-family-rule="${esc(f.id)}" ${p.rules.some(r=>r.mode==='family'&&r.family===f.id&&r.enabled!==false)?'checked':''}> Hide all ${esc(f.label.toLowerCase())}</label>`).join('');
+  setHTML('family-rules',ToolOwnership.FAMILIES.map(f=>`<label><input type="checkbox" data-family-rule="${esc(f.id)}" ${p.rules.some(r=>r.mode==='family'&&r.family===f.id&&r.enabled!==false)?'checked':''}> Hide all ${esc(f.label.toLowerCase())}</label>`).join(''));
   let html='';
   if(mode==='types') {
    const list=taxonomy.TYPES.filter(t=>(!group||t.group===group)&&matches(typeText(t)));
@@ -76,7 +78,7 @@ function create(api) {
    $('collection-result-count').textContent=`${list.length} owned tools or sets${p.inventory.length!==list.length?' match your filters':''}. Remove an entry to consider it again.`;
    html=`<ul class="record-list">${list.map(x=>`<li><div><b>${esc(x.label||x.sku||'Owned tool')}</b><small>${esc(details(x))}</small></div><button data-remove-inventory="${esc(x.id)}" class="text-btn">Remove</button></li>`).join('')}</ul>`;
   }
-  $('collection-results').innerHTML=html||'<div class="collection-empty"><h3>No matches in this view</h3><p>Try another term or tool area, or add a tool from any brand.</p></div>';
+  setHTML('collection-results',html||'<div class="collection-empty"><h3>No matches in this view</h3><p>Try another term or tool area, or add a tool from any brand.</p></div>');
  }
  return {init,render,openManual};
 }

@@ -39,8 +39,8 @@ function create(api){
   plan=index?DealPlanner.rankDeals(included,{index,inventory:prefs().inventory,rules:prefs().rules,overrides:prefs().overrides,capabilities,wishlist:[...new Set([...prefs().saved,...Object.keys(prefs().reviews).filter(k=>prefs().reviews[k]==='buy')])],mode:prefs().settings.planMode,tier:prefs().settings.member?'member':'public',budget:prefs().settings.monthlyBudget,purchases:prefs().purchases,history:payload?.history_by_sku||{},ownership:ToolOwnership,now:new Date()}):null;
   recommendationMap=new Map((plan?.candidates||[]).map(x=>[x.sku,x]));
  }
- function update(fn){const p=clone(prefs());fn(p);api.setPreferences(sanitize(p,api.bySKU));api.persist();recalculate();api.render();}
- function changed(){recalculate();api.render();}
+ function update(fn){const p=clone(prefs());fn(p);api.setPreferences(sanitize(p,api.bySKU));api.persist();recalculate();api.render(true);}
+ function changed(){recalculate();api.render(true);}
  function matches(r,state){
   if(state.savedOnly)return true;
   if(prefs().settings.hideCovered&&coverage(r).hidden&&!state.savedOnly)return false;
@@ -106,8 +106,8 @@ function create(api){
   if(additions.length){toast(additions.length+' new matching deal'+(additions.length===1?'':'s'));if(typeof Notification!=='undefined'&&Notification.permission==='granted')try{new Notification('New mechanic tool deals',{body:additions.slice(0,3).map(x=>x.title+': '+x.message).join('\n'),tag:'harbor-mechanic-deals'});}catch{toast('New matches saved in History & alerts; browser notification unavailable.');}}
  }
  async function refresh(initial=false){if(refreshing)return;refreshing=true;try{const [feed,cap]=await Promise.all([fetch('./data/deals.json',{cache:'no-store'}),Object.keys(capabilities).length?Promise.resolve(null):fetch('./data/capabilities.json',{cache:'no-store'})]);if(!feed.ok)throw Error('The deal feed could not be loaded.');const next=await feed.json();if(!Array.isArray(next.public_offers)||!Array.isArray(next.member_offers))throw Error('The saved feed has an invalid format.');if(cap?.ok)capabilities=await cap.json();payload=next;index=DealPlanner.indexOffers(payload,DATA);fetchError='';loading=false;
-   recalculate();api.render();await alertNewDeals(initial);
-  }catch(e){loading=false;fetchError=e.message;api.render();}finally{refreshing=false;}}
+   recalculate();api.render(true);await alertNewDeals(initial);
+  }catch(e){loading=false;fetchError=e.message;api.render(true);}finally{refreshing=false;}}
  function exportCSV(rows){const cols=['SKU','Brand','Product','Category','Public deal price','Member deal price','Public coupon','Member coupon','Public expiry','Member expiry','Catalog snapshot price','Owned coverage','Your review','Your notes','Official public offer','Official member offer'];const cell=v=>'"'+String(v??'').replace(/^[=+@\-\t\r]/,"'$&").replaceAll('"','""')+'"';const matrix=rows.map(r=>{const o=offers(r);return [r['Item Number'],r.Brand,r.Product,r.Category,o.public?.price,o.member?.price,o.public?.coupon_code,o.member?.coupon_code,o.public?.ends_on,o.member?.ends_on,r['Price USD'],coverage(r).explanation,prefs().reviews[r['Item Number']]||'unreviewed',prefs().notes[r['Item Number']]||'',o.public?.source_url,o.member?.source_url];});const blob=new Blob(['\ufeff'+[cols,...matrix].map(r=>r.map(cell).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='harbor_mechanic_deal_results.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);toast('Exported '+rows.length+' tools with separate offer prices');return true;}
  function init(){
   $('manual-family').innerHTML=ToolOwnership.FAMILIES.filter(f=>f.dimensions.length).map(f=>`<option value="${esc(f.id)}">${esc(f.label)}</option>`).join('');
@@ -133,7 +133,7 @@ function create(api){
   document.addEventListener('click',e=>{const t=e.target.closest('[data-own],[data-purchase],[data-remove-inventory],[data-remove-purchase],[data-open-history],[data-planner-close]');if(!t)return;if(t.dataset.own)markOwned(t.dataset.own);if(t.dataset.purchase)openPurchase(t.dataset.purchase);if(t.dataset.removeInventory)update(p=>{const old=p.inventory.find(x=>x.id===t.dataset.removeInventory);p.inventory=p.inventory.filter(x=>x.id!==t.dataset.removeInventory);if(old?.sku&&!p.inventory.some(x=>x.sku===old.sku)&&p.reviews[old.sku]==='owned')delete p.reviews[old.sku];});if(t.dataset.removePurchase)update(p=>{p.purchases=p.purchases.filter(x=>x.id!==t.dataset.removePurchase);});if(t.dataset.openHistory)showHistory(t.dataset.openHistory);if(t.dataset.plannerClose)$(t.dataset.plannerClose).close();});
   if(!collection)$('family-rules').addEventListener('change',e=>{const id=e.target.dataset.familyRule;if(!id)return;update(p=>{p.rules=p.rules.filter(r=>r.family!==id);if(e.target.checked)p.rules.push({family:id,mode:'family',enabled:true});});});
   $('show-alerts').addEventListener('click',()=>{setView('history');update(p=>p.alerts.forEach(x=>x.read=true));});
-  setView('deals');refresh(true);setInterval(()=>refresh(false),15*60*1000);setInterval(()=>{if(index){recalculate();api.render();}},60*1000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh(false);});
+  setView('deals');refresh(true);setInterval(()=>refresh(false),15*60*1000);setInterval(()=>{if(index){recalculate();api.render(true);}},60*1000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh(false);});
   if(window.MechanicSetup){setup=MechanicSetup.create({getPreferences:prefs,update,openMyTools:()=>setView('inventory')});setup.init();document.addEventListener('click',e=>{if(e.target.closest('[data-open-setup],#start-setup')){if($('settings-dialog').open)$('settings-dialog').close();setup.open();}});}
  }
  return {init,matches,score,effectivePrice,priceMarkup,cardExtras,detailMarkup,onRender,markOwned,changed,exportCSV,setView,refresh};
